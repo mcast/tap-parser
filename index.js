@@ -30,6 +30,7 @@ module.exports = function (cb) {
         asserts: [],
         pass: [],
         fail: [],
+        skips: [],
         errors: []
     };
     
@@ -52,6 +53,9 @@ module.exports = function (cb) {
                 message: 'unexpected additional plan',
             });
             return;
+        }
+        if (plan.start === 1 && plan.end === 0) {
+            results.skips.push('skip_all');
         }
         results.plan = plan;
         checkAssertionStart();
@@ -91,12 +95,6 @@ module.exports = function (cb) {
         if (ended) return;
         ended = true;
         
-        if (results.asserts.length === 0) {
-            stream.emit('parseError', {
-                message: 'no assertions found'
-            });
-        }
-        
         if (results.plan === undefined) {
             stream.emit('parseError', {
                 message: 'no plan found'
@@ -104,6 +102,18 @@ module.exports = function (cb) {
         }
         if (results.ok === undefined) results.ok = true;
         
+        var skip_all =
+           (results.plan && results.plan.end === 0 && results.plan.start === 1);
+        if (results.asserts.length === 0 && ! skip_all) {
+            stream.emit('parseError', {
+                message: 'no assertions found'
+            });
+        } else if (skip_all && results.asserts.length !== 0) {
+            stream.emit('parseError', {
+                message: 'assertion found after skip_all plan'
+            });
+        }
+
         var last = results.asserts.length
             && results.asserts[results.asserts.length - 1].number
         ;
